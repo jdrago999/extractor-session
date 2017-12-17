@@ -83,6 +83,7 @@ module Extractor
         email: email,
         password: password,
         proxy: proxy,
+        socks_proxy: socks_proxy,
         user_agent: user_agent,
         cookies: cookies,
         profile_url_template: profile_url_template

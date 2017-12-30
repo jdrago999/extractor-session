@@ -6,12 +6,11 @@ module Extractor
 
     delegate :get, :post, :put, :delete, :options, to: :http
 
-    attr_accessor :email, :password, :proxy, :socks_proxy, :user_agent, :signed_in, :cookies, :http, :profile_url_template
+    attr_accessor :email, :password, :socks_proxy, :user_agent, :signed_in, :cookies, :http, :profile_url_template
 
-    def initialize(email:, password:, proxy: nil, socks_proxy: nil, user_agent:, cookies:{}, profile_url_template:)
+    def initialize(email:, password:, socks_proxy: nil, user_agent:, cookies:{}, profile_url_template:)
       self.email = email
       self.password = password
-      self.proxy = proxy
       self.socks_proxy = socks_proxy
       self.user_agent = user_agent
       self.cookies = cookies
@@ -63,10 +62,7 @@ module Extractor
       http.base_uri base_uri
       http.debug_output
       http.headers 'User-Agent' => user_agent
-      if proxy
-        proxy_host, proxy_port = proxy.split(':')
-        http.http_proxy proxy_host, proxy_port.to_i
-      elsif socks_proxy
+      if socks_proxy
         proxy_host, proxy_port = socks_proxy.split(':')
         http.socks_proxy proxy_host, proxy_port.to_i
       end
@@ -81,7 +77,6 @@ module Extractor
       {
         email: email,
         password: password,
-        proxy: proxy,
         socks_proxy: socks_proxy,
         user_agent: user_agent,
         cookies: cookies,
@@ -210,7 +205,7 @@ module Extractor
     end
 
     def signed_in?
-      !!signed_in
+      self.cookies.key?('liap') && self.cookies.key?('liap')
     end
 
     def parse_cookies(resp)

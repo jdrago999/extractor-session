@@ -147,20 +147,45 @@ module Extractor
       )
       case response.code
       when 302
-        if response.header['location'] !~ %r{/feed/$}
-          raise StandardError.new("Unespected location: header -- '#{response.header['location']}'")
-        end
         new_cookies = parse_cookies(response)
         self.cookies.delete('leo_auth_token')
         self.cookies['li_at'] = new_cookies.fetch('li_at')
         self.cookies['liap'] = new_cookies.fetch('liap')
         self.signed_in = true
+        if response.header['location'] =~ %r{/check/add-phone$}
+          dismiss_phone_check!
+        elsif response.header['location'] !~ %r{/feed/$}
+          raise StandardError.new("Unespected location: header -- '#{response.header['location']}'")
+        end
+
       when 403
         raise Extractor::NotAuthorizedError.new(response)
       else
         raise StandardError.new(response)
       end
       sleep 1
+    end
+
+    def dismiss_phone_check!
+      response = post('/checkpoint/post-login/security/dismiss-phone-event',
+        follow_redirects: false,
+        headers: {
+          'referer': 'https://%s/check/add-phone' % URI(http.base_uri).host,
+          'authority' => URI(http.base_uri).host,
+          'origin' => 'https://%s' % URI(http.base_uri).host,
+          'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+          'x-isajaxform' => '1',
+          'x-requested-with' => 'XMLHttpRequest',
+          'csrf-token' => cookies['JSESSIONID'],
+        }
+      )
+      case response.code.to_i
+      when 200..399
+        # Phew
+      else
+        warn 'Cannot dismiss phone check'
+        raise StandardError.new(response)
+      end
     end
 
     def get_profile_page!(profile_url)
@@ -191,7 +216,7 @@ module Extractor
 
     def parse_cookies(resp)
       cookie_hash = {}
-      resp.get_fields('Set-Cookie').each do |cookie|
+      (resp.get_fields('Set-Cookie') || []).each do |cookie|
         cookie = cookie.split(';').first
         name, value = %r{^(\w+)\="?(.+?)"?$}.match(cookie)[1,2]
         cookie_hash[name] = value

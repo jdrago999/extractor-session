@@ -15,6 +15,16 @@ module Extractor
       self.user_agent = user_agent
       self.cookies = cookies
       self.profile_url_template = profile_url_template
+
+      uri = URI(profile_url_template % 'foo')
+      base_uri = "#{uri.scheme}://#{uri.host}"
+      http.base_uri base_uri
+      http.debug_output
+      http.headers 'User-Agent' => user_agent
+      if socks_proxy
+        proxy_host, proxy_port = socks_proxy.split(':')
+        http.socks_proxy proxy_host, proxy_port.to_i
+      end
     end
 
     def fetch_profile!(profile_url:)
@@ -45,7 +55,7 @@ module Extractor
           'origin' => http.base_uri,
           'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
           'csrf-token' => cookies['JSESSIONID'],
-          'accept' => 'application/vnd.linkedin.normalized+json',
+          'accept' => ('application/vnd.%s.normalized+json' % ENV.fetch('PARTNERID')),
           'referer' => 'https://' + URI(http.base_uri).host + '/in/' + username
         }
       )
@@ -58,16 +68,8 @@ module Extractor
     end
 
     def sign_in!
-      uri = URI(profile_url_template % 'foo')
-      base_uri = "#{uri.scheme}://#{uri.host}"
-      http.base_uri base_uri
-      http.debug_output
-      http.headers 'User-Agent' => user_agent
-      if socks_proxy
-        proxy_host, proxy_port = socks_proxy.split(':')
-        http.socks_proxy proxy_host, proxy_port.to_i
-      end
-
+      # Empty the mailbox in case we plan on receiving an email challenge later:
+      pop3.delete_all
       login_response = get_login_page!
       sleep 1
       get_auth_token!
@@ -142,22 +144,140 @@ module Extractor
       )
       case response.code
       when 302
-        new_cookies = parse_cookies(response)
-        self.cookies.delete('leo_auth_token')
-        self.cookies['li_at'] = new_cookies.fetch('li_at')
-        self.cookies['liap'] = new_cookies.fetch('liap')
-        self.signed_in = true
-        if response.header['location'] =~ %r{/check/add-phone$}
-          dismiss_phone_check!
-        elsif response.header['location'] !~ %r{/feed/$}
-          raise StandardError.new("Unespected location: header -- '#{response.header['location']}'")
+        if response.header['location'] =~ %r{/uas/consumer-email-challenge$}
+          handle_email_challenge(response)
+        else
+          return handle_login_success_response(response)
         end
-
       when 403
         raise Extractor::NotAuthorizedError.new(response)
       else
         raise StandardError.new(response)
       end
+    end
+
+    def handle_email_challenge(response)
+      warn "------------------ GOT EMAIL CHALLENGE --------------------"
+
+      path = URI(response.header['location']).path
+      @chp_token = parse_cookies(response)['chp_token']
+      @rt = ('s=%d&r=%s' % [Time.now.to_i + 86353, 'https://' + URI(http.base_uri).host + '/'])
+      response = get(path,
+        headers: {
+          'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'accept-language' => 'en-US,en;',
+          'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+          'referer' => 'https://' + URI(http.base_uri).host + '/',
+        }
+      )
+      @dts = %r{<input.+?name\="dts".+?value\="(.+?)"}.match(response.body)[1]
+      new_cookies = parse_cookies(response)
+      cookies['leo_auth_token'] = new_cookies['leo_auth_token']
+
+      pin = get_latest_email_challenge_pin(response)
+      warn "/////////////////// PIN(#{pin}) //////////////////////"
+      response = post('/uas/ato-pin-challenge-submit',
+        headers: {
+          'content-type' => 'application/x-www-form-urlencoded',
+          'authority' => URI(http.base_uri).host,
+          'cookie' => (cookies.merge(
+            'chp_token' => @chp_token,
+            'RT' => @rt
+          ).each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+          'referer' => 'https://' + URI(http.base_uri).host + '/',
+        },
+        follow_redirects: false,
+        body: URI.encode_www_form(
+          'PinVerificationForm_pinParam' => pin,
+          'signin' => 'Submit',
+          'security-challenge-id' => %r{<input type="hidden" name="security-challenge-id" value="(.+?)"}.match(response.body)[1],
+          'dts' => @dts,
+          'origSourceAlias' => '',
+          'csrfToken' => cookies['JSESSIONID'],
+          'sourceAlias' => %r{<input type="hidden" name="sourceAlias" value="(.+?)"}.match(response.body)[1],
+        )
+      )
+      case response.code.to_i
+      when 302
+        if response.header['location'] =~ %r{/feed/$}
+          return handle_login_success_response(response)
+        else
+          raise StandardError.new(response)
+        end
+      else
+        raise StandardError.new(response)
+      end
+    end
+
+    def get_latest_email_challenge_pin(response)
+#      resend_pin_to_email(response)
+
+      loop do
+        last_message = pop3.last
+
+        # pop3 has a weird behavior where .last returns an empty array instead of
+        # a single item or nil:
+        if last_message.is_a? Array
+          sleep 5
+          next
+        end
+
+        if last_message.subject =~ %r{, here's your PIN$}
+          text =  last_message.parts.find{|x| x.content_type =~ %r{text/plain} }.body
+          pin = %r{Please use this verification code to complete your sign in: (\d{6,6})}.match(text.to_s)[1] rescue nil
+          if pin
+            return pin
+          end
+        end
+
+        # Wait a bit for the email to arrive
+        sleep 5
+      end
+    end
+
+    def resend_pin_to_email(response)
+
+      pin_request_path = '/uas/ato-challenge-send-pin?csrfToken=%s&dts=%s&rnd=%d' % [
+        cookies['JSESSIONID'].gsub(':', '%3A'),
+        @dts,
+        Time.now.to_i * 1000
+      ]
+      response = post(pin_request_path,
+        headers: {
+          'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'accept-language' => 'en-US,en;',
+          'cookie' => (cookies.merge(
+            'chp_token' => @chp_token,
+            'RT' => @rt
+          ).each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+          'referer' => 'https://' + URI(http.base_uri).host + '/',
+          'x-isajaxform' => '1',
+          ('x-%s-tracedatacontext' % ENV.fetch('PARTNERID')) => ('X-LI-ORIGIN-UUID=%s' % response.headers['x-li-uuid']),
+          'x-requested-with' => 'XMLHttpRequest'
+        }
+      )
+      case response.code.to_i
+      when 200
+        # Yay
+        true
+      else
+        warn 'Cannot resend email challenge PIN'
+        raise StandardError.new(response)
+      end
+    end
+
+    def handle_login_success_response(response)
+      new_cookies = parse_cookies(response)
+      self.cookies.delete('leo_auth_token')
+      self.cookies['li_at'] = new_cookies.fetch('li_at')
+      self.cookies['liap'] = new_cookies.fetch('liap')
+      self.signed_in = true
+      if response.header['location'] =~ %r{/check/add-phone$}
+        dismiss_phone_check!
+      elsif response.header['location'] !~ %r{/feed/$}
+        raise StandardError.new("Unespected location: header -- '#{response.header['location']}'")
+      end
+
       sleep 1
     end
 
@@ -181,6 +301,16 @@ module Extractor
         warn 'Cannot dismiss phone check'
         raise StandardError.new(response)
       end
+    end
+
+    def pop3
+      @pop3 ||= Mail::POP3.new(
+        address: 'pop.mail.ru',
+        port: 995,
+        user_name: email,
+        password: password,
+        enable_ssl: true
+      )
     end
 
     def get_profile_page!(profile_url)

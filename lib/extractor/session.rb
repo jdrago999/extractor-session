@@ -209,7 +209,7 @@ module Extractor
     end
 
     def get_latest_email_challenge_pin(response)
-#      resend_pin_to_email(response)
+      resend_pin_to_email(response)
 
       loop do
         last_message = pop3.last

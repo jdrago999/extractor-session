@@ -34,7 +34,6 @@ module Extractor
       if profile_url =~ %r{/pub/}
         raise InvalidProfileUrlError.new 'URLs matching /pub/ are not allowed'
       end
-
       profile_response = get_profile_page!(profile_url)
       li_page_instance = %r{urn\:li\:page\:d_flagship3_profile_view_base\;(.+?)\&\#61\;\&\#61\;\s*?\S}.match(profile_response.body)[1]
       uri = URI(profile_url)
@@ -61,6 +60,13 @@ module Extractor
       case response.code
       when 200
         return response.body
+      when 403
+        # Expect: {"exceptionClass":"...UserVisibleException","message":"...can't be accessed","status":403}
+        data = JSON.parse(response.body)
+        if data['exceptionClass'].to_s =~ %r{UserVisibleException$}
+          raise Extractor::UserVisibilityError.new(response)
+        end
+
       else
         raise StandardError.new(response)
       end

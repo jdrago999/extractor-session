@@ -339,9 +339,6 @@ module Extractor
       end
 
       sleep 1
-    rescue => e
-      warn "ERROR: #{e}"
-      raise StandardError.new(response)
     end
 
     def dismiss_phone_check!

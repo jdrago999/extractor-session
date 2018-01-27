@@ -8,7 +8,7 @@ module Extractor
 
     attr_accessor :email, :password, :socks_proxy, :user_agent, :signed_in, :cookies, :http, :profile_url_template
 
-    def initialize(email:, password:, socks_proxy: nil, user_agent:, cookies:{}, profile_url_template:)
+    def initialize(email:, password:, socks_proxy: nil, user_agent:, cookies:{}, profile_url_template:, debug: false)
       self.email = email
       self.password = password
       self.socks_proxy = socks_proxy
@@ -19,7 +19,9 @@ module Extractor
       uri = URI(profile_url_template % 'foo')
       base_uri = "#{uri.scheme}://#{uri.host}"
       http.base_uri base_uri
-      http.debug_output
+      if debug
+        http.debug_output
+      end
       http.headers 'User-Agent' => user_agent
       if socks_proxy
         proxy_host, proxy_port = socks_proxy.split(':')

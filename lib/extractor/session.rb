@@ -72,6 +72,58 @@ module Extractor
       end
     end
 
+    def fetch_directory_page!(url:)
+      response = get(url,
+        headers: {
+          'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'accept-language' => 'en-US,en;',
+          'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+        }
+      )
+      case response.code
+      when 200
+        # yay
+        response
+      else
+        raise StandardError.new(response)
+      end
+    end
+
+    def fetch_pub_dir_page!(url:)
+      response = get(url,
+        follow_redirects: false,
+        headers: {
+          'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'accept-language' => 'en-US,en;',
+          'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+        }
+      )
+      case response.code
+      when 300..399
+        # yay
+        response
+      else
+        raise StandardError.new(response)
+      end
+    end
+
+    def fetch_results_page!(url:)
+      response = get(url,
+        headers: {
+          'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'accept-language' => 'en-US,en;',
+          'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
+        }
+      )
+      case response.code
+      when 200
+        # yay
+        response
+      else
+        raise StandardError.new(response)
+      end
+    end
+
     def sign_in!
       # Empty the mailbox in case we plan on receiving an email challenge later:
       pop3.delete_all

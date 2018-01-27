@@ -327,6 +327,8 @@ module Extractor
 
     def handle_login_success_response(response)
       new_cookies = parse_cookies(response)
+ byebug
+ puts
       raise StandardError.new(response) unless new_cookies.key? 'li_at'
       self.cookies.delete('leo_auth_token')
       self.cookies['li_at'] = new_cookies.fetch('li_at')

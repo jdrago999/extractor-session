@@ -92,6 +92,8 @@ module Extractor
     end
 
     def fetch_pub_dir_page!(url:)
+byebug
+puts
       response = get(url,
         follow_redirects: false,
         headers: {
@@ -100,6 +102,8 @@ module Extractor
           'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
         }
       )
+byebug
+puts
       case response.code
       when 300..399
         # yay

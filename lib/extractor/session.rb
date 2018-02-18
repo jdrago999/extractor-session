@@ -38,7 +38,11 @@ module Extractor
       end
       profile_response = get_profile_page!(profile_url)
       li_page_instance = %r{urn\:li\:page\:d_flagship3_profile_view_base\;(.+?)\&\#61\;\&\#61\;\s*?\S}.match(profile_response.body)[1]
-      uri = URI(profile_url)
+      begin
+        uri = URI.parse(profile_url)
+      rescue URI::InvalidURIError
+        uri = URI.parse(URI.escape(profile_url))
+      end
       username = uri.path.split('/')[-1]
 
       data_url = profile_url_template % username

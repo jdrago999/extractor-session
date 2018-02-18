@@ -379,7 +379,11 @@ module Extractor
     end
 
     def get_profile_page!(profile_url)
-      path = URI(profile_url).path
+      begin
+        path = URI(profile_url).path
+      rescue
+        path = URI.parse(URI.escape(profile_url).path
+      end
       response = get(path,
         headers: {
           'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',

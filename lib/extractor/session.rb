@@ -382,7 +382,7 @@ module Extractor
       begin
         path = URI(profile_url).path
       rescue
-        path = URI.parse(URI.escape(profile_url).path
+        path = URI.parse(URI.escape(profile_url)).path
       end
       response = get(path,
         headers: {

@@ -370,6 +370,9 @@ module Extractor
       new_cookies = parse_cookies(response)
       self.cookies.delete('leo_auth_token')
       unless new_cookies.key?('li_at')
+        if response.header['location'].to_s =~ %r{/uas/emailsent\b}
+          return handle_email_challenge(response)
+        end
         puts "Cookie 'li_at' not found -- response:"
         pp cookies: cookies, response_code: response.code, location_header: response.header['location']
       end

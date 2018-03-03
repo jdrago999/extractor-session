@@ -371,7 +371,7 @@ module Extractor
       self.cookies.delete('leo_auth_token')
       unless new_cookies.key?('li_at')
         puts "Cookie 'li_at' not found -- response:"
-        pp cookies: cookies, response_code: response.code
+        pp cookies: cookies, response_code: response.code, location_header: response.header['location']
       end
       self.cookies['li_at'] = new_cookies.fetch('li_at')
       self.cookies['liap'] = new_cookies.fetch('liap')

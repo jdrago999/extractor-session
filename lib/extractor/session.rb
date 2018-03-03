@@ -75,7 +75,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return fetch_profile!(profile_url)
       else
         raise StandardError.new(response)
       end
@@ -96,7 +96,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return fetch_directory_page!(url)
       else
         raise StandardError.new(response)
       end
@@ -118,7 +118,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return fetch_pub_dir_page!(url)
       else
         raise StandardError.new(response)
       end
@@ -139,7 +139,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return fetch_results_page!(url)
       else
         raise StandardError.new(response)
       end
@@ -178,7 +178,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return get_login_page!
       else
         raise StandardError.new(response)
       end
@@ -205,7 +205,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return get_auth_token!
       else
         raise StandardError.new(response)
       end
@@ -242,7 +242,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return submit_login!(body)
       else
         raise StandardError.new(response)
       end
@@ -299,7 +299,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return handle_email_challenge(response)
       else
         raise StandardError.new(response)
       end
@@ -359,7 +359,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return resend_pin_to_email(response)
       else
         warn 'Cannot resend email challenge PIN'
         raise StandardError.new(response)
@@ -404,7 +404,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return dismiss_phone_check!
       else
         warn 'Cannot dismiss phone check'
         raise StandardError.new(response)
@@ -442,7 +442,7 @@ module Extractor
       when 503
         warn '///// RETRY(%s)...' % path
         sleep 10
-        redo
+        return get_profile_page!(profile_url)
       else
         raise StandardError.new(response)
       end

@@ -72,7 +72,10 @@ module Extractor
         if data['exceptionClass'].to_s =~ %r{UserVisibleException$}
           raise Extractor::UserVisibilityError.new(response)
         end
-
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -90,6 +93,10 @@ module Extractor
       when 200
         # yay
         response
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -108,6 +115,10 @@ module Extractor
       when 300..399
         # yay
         response
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -125,6 +136,10 @@ module Extractor
       when 200
         # yay
         response
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -160,6 +175,10 @@ module Extractor
         response
       when 403
         raise Extractor::NotAuthorizedError.new(response)
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -183,6 +202,10 @@ module Extractor
         self.cookies['liap'] = true
       when 403
         raise Extractor::NotAuthorizedError.new(response)
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -216,6 +239,10 @@ module Extractor
         end
       when 403
         raise Extractor::NotAuthorizedError.new(response)
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -269,6 +296,10 @@ module Extractor
         else
           raise StandardError.new(response)
         end
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end
@@ -325,6 +356,10 @@ module Extractor
       when 200
         # Yay
         true
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         warn 'Cannot resend email challenge PIN'
         raise StandardError.new(response)
@@ -362,6 +397,10 @@ module Extractor
       case response.code.to_i
       when 200..399
         # Phew
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         warn 'Cannot dismiss phone check'
         raise StandardError.new(response)

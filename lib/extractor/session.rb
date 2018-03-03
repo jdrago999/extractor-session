@@ -396,6 +396,10 @@ module Extractor
       when 200
         # yay
         response
+      when 503
+        warn '///// RETRY(%s)...' % path
+        sleep 10
+        redo
       else
         raise StandardError.new(response)
       end

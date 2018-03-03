@@ -391,6 +391,7 @@ module Extractor
           'cookie' => (cookies.each.map{ |k,v| '%s="%s"' % [k,v] }.join('; ')),
         }
       )
+      warn '///// FETCH(%s) -> %d' % [path, response.code]
       case response.code
       when 200
         # yay
